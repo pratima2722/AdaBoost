@@ -1,394 +1,264 @@
 import os
 import pickle
 import numpy as np
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-# --- MODEL LOADING ---
-# Attempts to load your AdaBoost model file.
+# Load the AdaBoost model safely
 MODEL_PATH = "AdaBoost.pkl"
-model = None
-
 if os.path.exists(MODEL_PATH):
-    try:
-        with open(MODEL_PATH, 'rb') as f:
-            model = pickle.load(f)
-    except Exception as e:
-        print(f"Error loading model: {e}")
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
 else:
-    print(f"Warning: {MODEL_PATH} not found. Please place it in the same directory.")
+    model = None
 
-# --- BEAUTIFUL LAYOUT & STYLE CODE ---
+# Custom Premium HTML layout with integrated CSS styling
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predictive Engine Portal</title>
+    <title>AdaBoost Model Deployment</title>
     <style>
         :root {
-            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --neon-cyan: #06b6d4;
-            --neon-purple: #a855f7;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
+            --accent: #0ea5e9;
+            --accent-hover: #0284c7;
+            --border: #334155;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
         body {
-            background: var(--bg-gradient);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
             color: var(--text-main);
-            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 2rem 1rem;
-            overflow-x: hidden;
         }
-
-        /* Subtle Background Floating Animation */
-        body::before {
-            content: '';
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            background: var(--neon-cyan);
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.15;
-            top: 10%;
-            left: 15%;
-            animation: float 8s ease-in-out infinite alternate;
-            z-index: -1;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px) scale(1); }
-            100% { transform: translateY(40px) scale(1.1); }
-        }
-
         .container {
             width: 100%;
-            max-width: 850px;
+            max-width: 650px;
             background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 3rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 
-                        0 0 50px rgba(6, 182, 212, 0.1);
-            transform: translateY(20px);
-            opacity: 0;
-            animation: fadeInCard 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
         }
-
-        @keyframes fadeInCard {
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 2.5rem;
-        }
-
-        header h1 {
-            font-size: 2.25rem;
+        h2 {
+            margin-top: 0;
+            font-size: 28px;
             font-weight: 700;
-            background: linear-gradient(to right, var(--neon-cyan), var(--neon-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
+            color: var(--text-main);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 15px;
         }
-
-        header p {
+        p.subtitle {
             color: var(--text-muted);
-            font-size: 0.95rem;
+            font-size: 14px;
+            margin-top: -10px;
+            margin-bottom: 30px;
         }
-
-        /* Responsive Form Grid Matrix */
-        .grid-form {
+        .form-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem 2rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
-
-        @media (max-width: 680px) {
-            .grid-form { grid-template-columns: 1fr; }
-            .container { padding: 1.5rem; }
+        @media (max-width: 500px) {
+            .form-grid { grid-template-columns: 1fr; }
         }
-
-        .input-group {
+        .form-group {
             display: flex;
             flex-direction: column;
-            position: relative;
         }
-
-        .input-group label {
-            font-size: 0.85rem;
+        label {
+            font-size: 14px;
             font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: color 0.3s ease;
-        }
-
-        .input-group input, .input-group select {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
+            margin-bottom: 8px;
             color: var(--text-main);
-            font-size: 1rem;
+        }
+        input, select {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
             outline: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-color: var(--accent);
         }
-
-        .input-group input:focus, .input-group select:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
-            background: rgba(15, 23, 42, 0.8);
-        }
-
-        .input-group input:focus + label {
-            color: var(--neon-cyan);
-        }
-
         .btn-container {
             grid-column: 1 / -1;
-            margin-top: 1.5rem;
-            display: flex;
-            justify-content: center;
+            margin-top: 15px;
         }
-
         button {
-            background: linear-gradient(90deg, #06b6d4, #3b82f6);
-            color: white;
+            width: 100%;
+            background-color: var(--accent);
+            color: #ffffff;
             border: none;
-            border-radius: 12px;
-            padding: 1rem 3rem;
-            font-size: 1.1rem;
+            padding: 14px;
+            font-size: 16px;
             font-weight: 600;
+            border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            transition: background-color 0.2s;
         }
-
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.6);
-            background: linear-gradient(90deg, #22d3ee, #60a5fa);
+            background-color: var(--accent-hover);
         }
-
-        button:active { transform: translateY(1px); }
-
-        /* Elegant Dynamic Result Display */
-        .result-display {
-            margin-top: 2.5rem;
-            padding: 1.5rem;
-            border-radius: 16px;
+        .result-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: rgba(14, 165, 233, 0.15);
+            border: 1px solid var(--accent);
             text-align: center;
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: none;
-            border: 1px solid transparent;
-            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
-
-        @keyframes popIn {
-            0% { transform: scale(0.9); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+        .result-box h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-
-        .result-success {
-            background: rgba(16, 185, 129, 0.15);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: #34d399;
+        .result-val {
+            font-size: 24px;
+            font-weight: 700;
+            color: #38bdf8;
         }
-
-        .result-danger {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: #f87171;
+        .error-box {
+            background-color: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            color: #fca5a5;
+            text-align: center;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1>AdaBoost Analytics Portal</h1>
-        <p>Enter individual telemetry metrics below to compute model diagnostics</p>
-    </header>
+    <h2>Predictive Analytics Dashboard</h2>
+    <p class="subtitle">Enter the metrics required by the AdaBoost classification engine below.</p>
 
-    <form id="predictionForm" class="grid-form">
-        <!-- Age -->
-        <div class="input-group">
-            <label for="age">Age</label>
-            <input type="number" id="age" name="age" step="any" min="0" required placeholder="e.g. 34">
-        </div>
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
 
-        <!-- Gender -->
-        <div class="input-group">
-            <label for="gender">Gender</label>
-            <select id="gender" name="gender" required>
-                <option value="" disabled selected>Select Gender</option>
-                <option value="1">Male</option>
-                <option value="0">Female</option>
-            </select>
-        </div>
-
-        <!-- Tenure -->
-        <div class="input-group">
-            <label for="tenure">Tenure (Months)</label>
-            <input type="number" id="tenure" name="tenure" step="any" min="0" required placeholder="e.g. 12">
-        </div>
-
-        <!-- Usage Frequency -->
-        <div class="input-group">
-            <label for="usage_frequency">Usage Frequency</label>
-            <input type="number" id="usage_frequency" name="usage_frequency" step="any" min="0" required placeholder="e.g. 20">
-        </div>
-
-        <!-- Support Calls -->
-        <div class="input-group">
-            <label for="support_calls">Support Calls</label>
-            <input type="number" id="support_calls" name="support_calls" step="any" min="0" required placeholder="e.g. 2">
-        </div>
-
-        <!-- Payment Delay -->
-        <div class="input-group">
-            <label for="payment_delay">Payment Delay (Days)</label>
-            <input type="number" id="payment_delay" name="payment_delay" step="any" min="0" required placeholder="e.g. 4">
-        </div>
-
-        <!-- Subscription Type -->
-        <div class="input-group">
-            <label for="subscription_type">Subscription Type</label>
-            <select id="subscription_type" name="subscription_type" required>
-                <option value="" disabled selected>Select Level</option>
-                <option value="0">Basic</option>
-                <option value="1">Standard</option>
-                <option value="2">Premium</option>
-            </select>
-        </div>
-
-        <!-- Contract Length -->
-        <div class="input-group">
-            <label for="contract_length">Contract Length</label>
-            <select id="contract_length" name="contract_length" required>
-                <option value="" disabled selected>Select Type</option>
-                <option value="0">Month-to-Month</option>
-                <option value="1">Annual</option>
-                <option value="2">Two-Year</option>
-            </select>
-        </div>
-
-        <!-- Total Spend -->
-        <div class="input-group">
-            <label for="total_spend">Total Spend</label>
-            <input type="number" id="total_spend" name="total_spend" step="any" min="0" required placeholder="e.g. 450.50">
-        </div>
-
-        <!-- Last Interaction -->
-        <div class="input-group">
-            <label for="last_interaction">Last Interaction (Days ago)</label>
-            <input type="number" id="last_interaction" name="last_interaction" step="any" min="0" required placeholder="e.g. 5">
-        </div>
-
-        <div class="btn-container">
-            <button type="submit">Run Diagnostics</button>
+    <form method="POST" action="/predict">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" step="any" name="age" id="age" required value="{{ inputs.get('age', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select name="gender" id="gender" required>
+                    <option value="0" {% if inputs.get('gender') == '0' %}selected{% endif %}>Female</option>
+                    <option value="1" {% if inputs.get('gender') == '1' %}selected{% endif %}>Male</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="tenure">Tenure (Months)</label>
+                <input type="number" step="any" name="tenure" id="tenure" required value="{{ inputs.get('tenure', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="usage_frequency">Usage Frequency</label>
+                <input type="number" step="any" name="usage_frequency" id="usage_frequency" required value="{{ inputs.get('usage_frequency', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="support_calls">Support Calls</label>
+                <input type="number" step="any" name="support_calls" id="support_calls" required value="{{ inputs.get('support_calls', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="payment_delay">Payment Delay (Days)</label>
+                <input type="number" step="any" name="payment_delay" id="payment_delay" required value="{{ inputs.get('payment_delay', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="subscription_type">Subscription Type</label>
+                <select name="subscription_type" id="subscription_type" required>
+                    <option value="0" {% if inputs.get('subscription_type') == '0' %}selected{% endif %}>Basic</option>
+                    <option value="1" {% if inputs.get('subscription_type') == '1' %}selected{% endif %}>Standard</option>
+                    <option value="2" {% if inputs.get('subscription_type') == '2' %}selected{% endif %}>Premium</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="contract_length">Contract Length</label>
+                <select name="contract_length" id="contract_length" required>
+                    <option value="0" {% if inputs.get('contract_length') == '0' %}selected{% endif %}>Monthly</option>
+                    <option value="1" {% if inputs.get('contract_length') == '1' %}selected{% endif %}>Quarterly</option>
+                    <option value="2" {% if inputs.get('contract_length') == '2' %}selected{% endif %}>Annual</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="total_spend">Total Spend</label>
+                <input type="number" step="any" name="total_spend" id="total_spend" required value="{{ inputs.get('total_spend', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="last_interaction">Last Interaction (Days ago)</label>
+                <input type="number" step="any" name="last_interaction" id="last_interaction" required value="{{ inputs.get('last_interaction', '') }}">
+            </div>
+            <div class="btn-container">
+                <button type="submit">Run Model Inference</button>
+            </div>
         </div>
     </form>
 
-    <div id="result" class="result-display"></div>
+    {% if prediction is not none %}
+    <div class="result-box">
+        <h3>Inference Classification Result</h3>
+        <div class="result-val">Class Designation: {{ prediction }}</div>
+    </div>
+    {% endif %}
 </div>
 
-<script>
-    document.getElementById('predictionForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const resultDiv = document.getElementById('result');
-        resultDiv.style.display = 'none';
-        
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData.entries());
-        
-        try {
-            const response = await fetch('/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            const resData = await response.json();
-            
-            if (response.ok) {
-                resultDiv.innerText = `Prediction Verdict: Class ${resData.prediction}`;
-                resultDiv.className = 'result-display ' + 
-                    (resData.prediction === 1 ? 'result-success' : 'result-danger');
-            } else {
-                resultDiv.innerText = `Error: ${resData.error}`;
-                resultDiv.className = 'result-display result-danger';
-            }
-            resultDiv.style.display = 'block';
-        } catch (err) {
-            resultDiv.innerText = 'Server down or network failure.';
-            resultDiv.className = 'result-display result-danger';
-            resultDiv.style.display = 'block';
-        }
-    });
-</script>
 </body>
 </html>
 """
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template_string(HTML_TEMPLATE)
+@app.route("/", methods=["GET"])
+def home():
+    if model is None:
+        return render_template_string(HTML_TEMPLATE, error="Warning: 'AdaBoost.pkl' file was not discovered in the working directory.", inputs={})
+    return render_template_string(HTML_TEMPLATE, inputs={})
 
-@app.route('/predict', methods=['POST'])
+@app.route("/predict", methods=["POST"])
 def predict():
-    if not model:
-        return jsonify({'error': 'Machine learning model architecture file not found on server.'}), 500
-        
+    if model is None:
+        return render_template_string(HTML_TEMPLATE, error="Error: Model deployment configuration missing.", inputs={})
+    
     try:
-        data = request.json
-        
-        # Mapping out all 10 verified keys in order
-        feature_vector = [
-            float(data['age']),
-            float(data['gender']),
-            float(data['tenure']),
-            float(data['usage_frequency']),
-            float(data['support_calls']),
-            float(data['payment_delay']),
-            float(data['subscription_type']),
-            float(data['contract_length']),
-            float(data['total_spend']),
-            float(data['last_interaction'])
+        # Extract features matching the exact positions from your pickle header
+        feature_values = [
+            float(request.form.get("age")),
+            float(request.form.get("gender")),
+            float(request.form.get("tenure")),
+            float(request.form.get("usage_frequency")),
+            float(request.form.get("support_calls")),
+            float(request.form.get("payment_delay")),
+            float(request.form.get("subscription_type")),
+            float(request.form.get("contract_length")),
+            float(request.form.get("total_spend")),
+            float(request.form.get("last_interaction"))
         ]
         
-        # Reshaping vector to match scikit-learn expected format (1, 10)
-        prediction = model.predict(np.array([feature_vector]))
+        # Reshape data array for single-sample inference
+        input_data = np.array([feature_values])
+        prediction = int(model.predict(input_data)[0])
         
-        return jsonify({'prediction': int(prediction[0])})
+        return render_template_string(HTML_TEMPLATE, prediction=prediction, inputs=request.form)
         
-    except KeyError as k_err:
-        return jsonify({'error': f'Missing value entry field parameter: {str(k_err)}'}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return render_template_string(HTML_TEMPLATE, error=f"Inference Failure: {str(e)}", inputs=request.form)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
